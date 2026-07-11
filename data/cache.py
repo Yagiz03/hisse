@@ -8,6 +8,7 @@ import streamlit as st
 
 from data.tefas import TefasClient
 from data import financials as _financials
+from data import prices as _prices
 
 CACHE_TTL_SECONDS = 6 * 60 * 60  # 6 saat
 
@@ -32,3 +33,13 @@ def fetch_financials(
     symbols: list[str], start_year: int, end_year: int, exchange: str, financial_group: str
 ) -> pd.DataFrame:
     return _financials.fetch(symbols, start_year, end_year, exchange, financial_group)
+
+
+@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
+def fetch_stock_prices(symbols: list[str], start: date, end: date) -> pd.DataFrame:
+    return _prices.fetch_stock_prices(symbols, start, end)
+
+
+@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
+def fetch_index_prices(index: str, start: date, end: date) -> pd.DataFrame:
+    return _prices.fetch_index_prices(index, start, end)

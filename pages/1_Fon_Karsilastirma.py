@@ -6,7 +6,7 @@ import streamlit as st
 
 from data.cache import fetch_allocation, fetch_info
 from data.tefas import TefasError
-from ui.components import kpi_card
+from ui.components import download_excel_button, kpi_card
 from ui.theme import fund_color, inject_css, plotly_layout
 
 st.set_page_config(page_title="Fon Karşılaştırma", page_icon="📊", layout="wide")
@@ -156,3 +156,5 @@ else:
 
 with st.expander("Ham dağılım verisi"):
     st.dataframe(alloc_df.style.format("{:.2f}"), use_container_width=True)
+
+download_excel_button(alloc_df, "fon_karsilastirma.xlsx")

@@ -1,5 +1,8 @@
 """Ortak Streamlit UI bileşenleri (KPI kartı vb.)."""
 
+from io import BytesIO
+
+import pandas as pd
 import streamlit as st
 
 
@@ -17,4 +20,15 @@ def kpi_card(label: str, value: str, delta: str | None = None, delta_good: bool 
         </div>
         """,
         unsafe_allow_html=True,
+    )
+
+
+def download_excel_button(df: pd.DataFrame, file_name: str, label: str = "Excel'e aktar") -> None:
+    buffer = BytesIO()
+    df.to_excel(buffer, index=True)
+    st.download_button(
+        label=label,
+        data=buffer.getvalue(),
+        file_name=file_name,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )

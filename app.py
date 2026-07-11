@@ -19,5 +19,7 @@ st.markdown(
 
     - **Fon Karşılaştırma** — TEFAS fonlarının varlık dağılımını yan yana karşılaştırın
     - **Finansal Tablolar** — BIST şirketlerinin bilanço / gelir tablosu kalemlerini ve rasyolarını karşılaştırın
+    - **Sektör Isı Haritası** — BIST30'un sektör bazlı performansını tek bakışta görün
+    - **Portföy Simülasyonu** — Ağırlıklı bir portföyün geçmiş performansını XU100'e karşı test edin
     """
 )

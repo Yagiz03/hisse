@@ -6,7 +6,7 @@ import streamlit as st
 
 from data.cache import fetch_financials
 from data.financials import latest_value, metric_series
-from ui.components import kpi_card
+from ui.components import download_excel_button, kpi_card
 from ui.theme import fund_color, inject_css, plotly_layout
 
 st.set_page_config(page_title="Finansal Tablolar", page_icon="📈", layout="wide")
@@ -121,3 +121,5 @@ st.caption("ROE burada yıllıklandırılmamış, tek çeyreğin net kar / özka
 
 with st.expander("Ham finansal tablo verisi"):
     st.dataframe(df, use_container_width=True)
+
+download_excel_button(df, "finansal_tablolar.xlsx")
