@@ -13,9 +13,19 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Union
 
 import fitz
 import pandas as pd
+
+PdfSource = Union[str, bytes]
+
+
+def _open(pdf: PdfSource) -> fitz.Document:
+    if isinstance(pdf, (bytes, bytearray)):
+        return fitz.open(stream=pdf, filetype="pdf")
+    return fitz.open(pdf)
+
 
 _ROW_TOLERANCE = 2.0
 
@@ -96,9 +106,9 @@ def _find_anchor_page(doc: fitz.Document, pattern: re.Pattern, max_pages: int = 
     return None
 
 
-def parse_allocation(pdf_path: str) -> dict[str, float]:
+def parse_allocation(pdf: PdfSource) -> dict[str, float]:
     """Fonun varlık sınıfı bazlı yüzdelik dağılımını döndürür (etiket -> yüzde)."""
-    doc = fitz.open(pdf_path)
+    doc = _open(pdf)
     page_no = _find_anchor_page(doc, _ALLOCATION_PAGE_ANCHOR)
     if page_no is None:
         return {}
@@ -145,7 +155,7 @@ def _weight_column_x(rows: list[list[Span]]) -> float | None:
     return None
 
 
-def parse_holdings(pdf_path: str) -> pd.DataFrame:
+def parse_holdings(pdf: PdfSource) -> pd.DataFrame:
     """Fonun tek tek taşıdığı menkul kıymetleri ve fon içi ağırlıklarını döndürür.
 
     Şirketten şirkete tablo sütun sayısı/sırası değiştiği için değer sütununu
@@ -153,7 +163,7 @@ def parse_holdings(pdf_path: str) -> pd.DataFrame:
     sayıyı seçerek buluyoruz - bu, aradaki tutar/fiyat sütunlarıyla karışmayı
     önlüyor.
     """
-    doc = fitz.open(pdf_path)
+    doc = _open(pdf)
     page_no = _find_anchor_page(doc, _HOLDINGS_ANCHOR)
     if page_no is None:
         return pd.DataFrame(columns=["kod", "agirlik_pct"])
@@ -189,3 +199,19 @@ def parse_holdings(pdf_path: str) -> pd.DataFrame:
             records.append({"kod": first, "agirlik_pct": pct})
 
     return pd.DataFrame(records)
+
+
+_PERIOD = re.compile(
+    r"(OCAK|ŞUBAT|MART|NİSAN|MAYIS|HAZİRAN|TEMMUZ|AĞUSTOS|EYLÜL|EKİM|KASIM|ARALIK)"
+    r"[\s\-]*(\d{4})",
+    re.IGNORECASE,
+)
+
+
+def parse_period(pdf: PdfSource) -> str | None:
+    """PDF'in ait olduğu ay/yılı bulmaya çalışır (örn. 'Haziran-2026')."""
+    doc = _open(pdf)
+    match = _PERIOD.search(doc[0].get_text())
+    if not match:
+        return None
+    return f"{match.group(1).title()}-{match.group(2)}"

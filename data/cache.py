@@ -6,26 +6,11 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-from data.tefas import TefasClient
 from data import financials as _financials
+from data import kap as _kap
 from data import prices as _prices
 
 CACHE_TTL_SECONDS = 6 * 60 * 60  # 6 saat
-
-
-@st.cache_resource
-def get_client() -> TefasClient:
-    return TefasClient()
-
-
-@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
-def fetch_allocation(fund_code: str, start_date: date, end_date: date) -> pd.DataFrame:
-    return get_client().get_fund_allocation(fund_code, start_date, end_date)
-
-
-@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
-def fetch_info(fund_code: str, start_date: date, end_date: date) -> pd.DataFrame:
-    return get_client().get_fund_info(fund_code, start_date, end_date)
 
 
 @st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
@@ -43,3 +28,13 @@ def fetch_stock_prices(symbols: list[str], start: date, end: date) -> pd.DataFra
 @st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
 def fetch_index_prices(index: str, start: date, end: date) -> pd.DataFrame:
     return _prices.fetch_index_prices(index, start, end)
+
+
+@st.cache_data(show_spinner=False)
+def parse_kap_allocation(pdf_bytes: bytes) -> dict[str, float]:
+    return _kap.parse_allocation(pdf_bytes)
+
+
+@st.cache_data(show_spinner=False)
+def parse_kap_period(pdf_bytes: bytes) -> str | None:
+    return _kap.parse_period(pdf_bytes)
