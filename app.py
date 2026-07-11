@@ -18,5 +18,6 @@ st.markdown(
     Soldaki menüden bir modül seçin:
 
     - **Fon Karşılaştırma** — TEFAS fonlarının varlık dağılımını yan yana karşılaştırın
+    - **Finansal Tablolar** — BIST şirketlerinin bilanço / gelir tablosu kalemlerini ve rasyolarını karşılaştırın
     """
 )
