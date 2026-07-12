@@ -85,12 +85,17 @@ def latest_value(df: pd.DataFrame, symbol: str, metric: str) -> float | None:
 
 
 def qoq_growth(df: pd.DataFrame, symbol: str, metric: str) -> float | None:
-    """Metriğin son çeyrekte bir önceki çeyreğe göre yüzde değişimi."""
+    """Metriğin son çeyrekte bir önceki çeyreğe göre yüzde değişimi.
+
+    Önceki çeyrek negatifse (örn. zarar) yüzde değişim anlamsız/yanıltıcı
+    olur (zarardan kâra geçiş "büyük düşüş" gibi görünebilir) - bu durumda
+    None döner, çağıran taraf "veri yok" gösterir.
+    """
     series = metric_series(df, symbol, metric)
     if len(series) < 2:
         return None
     prev, last = series.iloc[-2], series.iloc[-1]
-    if prev == 0:
+    if prev <= 0:
         return None
     return float((last / prev - 1) * 100)
 

@@ -47,18 +47,24 @@ class KapAutoFetcher:
             pass  # sadece çerez almak için deneniyor, başarısız olursa devam edilir
 
     def find_fund_oid(self, fund_code: str) -> str:
-        resp = self._session.post(
-            f"{BASE_URL}/tr/api/search/combined",
-            json={"keyword": fund_code, "discClass": "ALL", "lang": "tr", "channel": "WEB"},
-            headers={
-                "Content-Type": "application/json",
-                "Origin": BASE_URL,
-                "Referer": f"{BASE_URL}/tr",
-            },
-            timeout=self._timeout,
-        )
-        resp.raise_for_status()
-        categories = resp.json()
+        try:
+            resp = self._session.post(
+                f"{BASE_URL}/tr/api/search/combined",
+                json={"keyword": fund_code, "discClass": "ALL", "lang": "tr", "channel": "WEB"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Origin": BASE_URL,
+                    "Referer": f"{BASE_URL}/tr",
+                },
+                timeout=self._timeout,
+            )
+            resp.raise_for_status()
+            categories = resp.json()
+        except requests.RequestException as exc:
+            raise KapFetchError(f"KAP arama isteği başarısız ({exc})") from exc
+        except ValueError as exc:
+            raise KapFetchError(f"KAP arama yanıtı beklenmeyen formatta ({exc})") from exc
+
         for cat in categories:
             if cat.get("category") != "companyOrFunds":
                 continue
@@ -68,12 +74,16 @@ class KapAutoFetcher:
         raise KapFetchError(f"KAP aramasında '{fund_code}' fon kodu bulunamadı")
 
     def find_latest_report_url(self, fund_oid: str) -> str:
-        resp = self._session.get(
-            f"{BASE_URL}/tr/fon-bilgileri/ozet/{fund_oid}",
-            headers={"Referer": f"{BASE_URL}/tr"},
-            timeout=self._timeout,
-        )
-        resp.raise_for_status()
+        try:
+            resp = self._session.get(
+                f"{BASE_URL}/tr/fon-bilgileri/ozet/{fund_oid}",
+                headers={"Referer": f"{BASE_URL}/tr"},
+                timeout=self._timeout,
+            )
+            resp.raise_for_status()
+        except requests.RequestException as exc:
+            raise KapFetchError(f"Fon özet sayfası alınamadı ({exc})") from exc
+
         match = FILE_LINK_RE.search(resp.text)
         if not match:
             raise KapFetchError(
@@ -82,8 +92,12 @@ class KapAutoFetcher:
         return f"{BASE_URL}/tr/api/file/download/{match.group(1)}"
 
     def download_pdf(self, url: str) -> bytes:
-        resp = self._session.get(url, headers={"Referer": BASE_URL}, timeout=self._timeout)
-        resp.raise_for_status()
+        try:
+            resp = self._session.get(url, headers={"Referer": BASE_URL}, timeout=self._timeout)
+            resp.raise_for_status()
+        except requests.RequestException as exc:
+            raise KapFetchError(f"PDF indirilemedi ({exc})") from exc
+
         content_type = resp.headers.get("Content-Type", "")
         if "pdf" not in content_type.lower() and not resp.content.startswith(b"%PDF"):
             raise KapFetchError(f"İndirilen dosya PDF değil (Content-Type: {content_type})")
