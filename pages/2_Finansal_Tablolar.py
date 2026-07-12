@@ -70,7 +70,7 @@ for i, sym in enumerate(available_symbols):
             "Hasılat (Son Çeyrek)",
             f"{revenue:,.0f}" if revenue is not None else "veri yok",
             delta=f"{revenue_g:+.1f}% ÇÇ" if revenue_g is not None else None,
-            delta_good=(revenue_g is not None and revenue_g >= 0),
+            delta_good=(revenue_g >= 0) if revenue_g is not None else None,
         )
         net_income = latest_value(df, sym, "Net Dönem Karı")
         net_income_g = qoq_growth(df, sym, "Net Dönem Karı")
@@ -78,7 +78,7 @@ for i, sym in enumerate(available_symbols):
             "Net Kar (Son Çeyrek)",
             f"{net_income:,.0f}" if net_income is not None else "veri yok",
             delta=f"{net_income_g:+.1f}% ÇÇ" if net_income_g is not None else None,
-            delta_good=(net_income_g is not None and net_income_g >= 0),
+            delta_good=(net_income_g >= 0) if net_income_g is not None else None,
         )
 
 st.divider()
