@@ -6,7 +6,7 @@ import streamlit as st
 
 from data.cache import fetch_kap_allocation_pdf, parse_kap_allocation, parse_kap_period
 from data.kap_fetch import KapFetchError
-from ui.components import download_excel_button
+from ui.components import download_excel_button, kpi_card
 from ui.nav import top_nav
 from ui.theme import fund_color, inject_css, plotly_layout
 
@@ -108,6 +108,24 @@ st.caption(
     "Dönem: "
     + " · ".join(f"**{lbl}**: {periods.get(lbl) or 'bilinmiyor'}" for lbl in valid_labels)
 )
+
+st.divider()
+
+
+def _risk_tier(hisse_pct: float) -> tuple[str, bool | None]:
+    if hisse_pct >= 75:
+        return "Yüksek Risk", False
+    if hisse_pct >= 30:
+        return "Orta Risk", None
+    return "Düşük Risk", True
+
+
+cols = st.columns(len(valid_labels))
+for i, label in enumerate(valid_labels):
+    with cols[i]:
+        hisse_pct = allocations[label].get("Hisse Senedi", 0.0)
+        tier, tier_good = _risk_tier(hisse_pct)
+        kpi_card(f"{label} · Risk Profili", tier, delta=f"Hisse Senedi %{hisse_pct:.0f}", delta_good=tier_good)
 
 st.divider()
 

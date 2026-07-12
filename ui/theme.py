@@ -91,6 +91,7 @@ def inject_css() -> None:
         }}
         .kpi-delta-good {{ color: {STATUS['good']}; font-size: 0.85rem; }}
         .kpi-delta-bad {{ color: {STATUS['critical']}; font-size: 0.85rem; }}
+        .kpi-delta-neutral {{ color: {TEXT_MUTED}; font-size: 0.85rem; }}
         .kpi-value-good {{ color: {STATUS['good']}; }}
         .kpi-value-bad {{ color: {STATUS['critical']}; }}
 

@@ -7,7 +7,7 @@ import streamlit as st
 
 from data.cache import fetch_index_prices, fetch_stock_prices
 from data.prices import daily_returns
-from ui.components import kpi_card
+from ui.components import download_excel_button, kpi_card
 from ui.nav import top_nav
 from ui.theme import fund_color, inject_css, plotly_layout
 
@@ -93,6 +93,10 @@ running_max = (1 + portfolio_returns).cumprod().cummax()
 drawdown = ((1 + portfolio_returns).cumprod() / running_max - 1).min() * 100
 sharpe = (portfolio_returns.mean() / portfolio_returns.std() * np.sqrt(252)) if portfolio_returns.std() > 0 else 0
 
+win_rate = (portfolio_returns > 0).mean() * 100
+best_day = portfolio_returns.max() * 100
+worst_day = portfolio_returns.min() * 100
+
 cols = st.columns(4)
 with cols[0]:
     kpi_card("Toplam Getiri", f"{total_return:+.1f}%", delta_good=total_return >= 0)
@@ -102,6 +106,24 @@ with cols[2]:
     kpi_card("Maksimum Düşüş (Drawdown)", f"{drawdown:.1f}%", delta_good=False)
 with cols[3]:
     kpi_card("Sharpe (risksiz oran=0)", f"{sharpe:.2f}", delta_good=sharpe >= 0)
+
+cols2 = st.columns(4)
+with cols2[0]:
+    kpi_card("Kazanma Oranı", f"%{win_rate:.0f}", delta_good=win_rate >= 50)
+with cols2[1]:
+    kpi_card("En İyi Gün", f"{best_day:+.1f}%", delta_good=True)
+with cols2[2]:
+    kpi_card("En Kötü Gün", f"{worst_day:+.1f}%", delta_good=False)
+with cols2[3]:
+    if not index_df.empty:
+        index_df_sorted = index_df.sort_values("DATE")
+        index_total_return = (
+            index_df_sorted["VALUE"].iloc[-1] / index_df_sorted["VALUE"].iloc[0] - 1
+        ) * 100
+        alpha = total_return - index_total_return
+        kpi_card("XU100'e Göre Fark", f"{alpha:+.1f}%", delta_good=alpha >= 0)
+    else:
+        kpi_card("XU100'e Göre Fark", "veri yok")
 
 st.divider()
 
@@ -134,8 +156,36 @@ if not index_df.empty:
 fig.update_layout(**plotly_layout(title="Kümülatif Getiri (%)", yaxis_title="Getiri (%)"))
 st.plotly_chart(fig, use_container_width=True)
 
-with st.expander("Portföy ağırlıkları"):
-    st.dataframe(
-        portfolio_df[["Sembol", "Ağırlık"]].assign(**{"Ağırlık (%)": lambda d: d["Ağırlık"] * 100}).drop(columns="Ağırlık"),
-        use_container_width=True,
+if len(returns_wide.columns) > 1:
+    st.divider()
+    st.subheader("Korelasyon Matrisi")
+    st.caption("Portföydeki hisselerin günlük getirileri arasındaki korelasyon - birbirine yakın hareket eden hisseler çeşitlendirme faydasını azaltır")
+    corr = returns_wide.corr()
+    corr_fig = go.Figure(
+        data=go.Heatmap(
+            z=corr.values,
+            x=corr.columns,
+            y=corr.columns,
+            colorscale=[[0, "#e66767"], [0.5, "#383835"], [1, "#3987e5"]],
+            zmin=-1,
+            zmax=1,
+            text=corr.round(2).values,
+            texttemplate="%{text}",
+            textfont=dict(color="#ffffff"),
+        )
     )
+    corr_fig.update_layout(**plotly_layout(title="Korelasyon Matrisi", margin=dict(l=40, r=20, t=40, b=40)))
+    st.plotly_chart(corr_fig, use_container_width=True)
+
+st.divider()
+
+weights_display = (
+    portfolio_df[["Sembol", "Ağırlık"]]
+    .assign(**{"Ağırlık (%)": lambda d: d["Ağırlık"] * 100})
+    .drop(columns="Ağırlık")
+    .set_index("Sembol")
+)
+with st.expander("Portföy ağırlıkları"):
+    st.dataframe(weights_display, use_container_width=True)
+
+download_excel_button(portfolio_cumulative.to_frame("Kümülatif Getiri"), "portfoy_simulasyonu.xlsx")

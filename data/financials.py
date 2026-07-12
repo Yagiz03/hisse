@@ -20,6 +20,8 @@ from isyatirimhisse import fetch_financials as _fetch_financials
 # birden fazla aday tutulur; ilk eşleşen kullanılır.
 METRIC_KEYWORDS: dict[str, list[str]] = {
     "Hasılat": ["hasılat", "satış gelirleri", "esas faaliyet gelirleri"],
+    "Brüt Kar": ["brüt kar"],
+    "Esas Faaliyet Karı": ["esas faaliyet karı", "faaliyet karı"],
     "Net Dönem Karı": ["net dönem karı", "dönem net karı", "net dönem kar/zararı"],
     "Toplam Varlıklar": ["toplam varlıklar", "aktif toplamı"],
     "Dönen Varlıklar": ["dönen varlıklar"],
@@ -80,3 +82,24 @@ def latest_value(df: pd.DataFrame, symbol: str, metric: str) -> float | None:
     if series.empty:
         return None
     return float(series.iloc[-1])
+
+
+def qoq_growth(df: pd.DataFrame, symbol: str, metric: str) -> float | None:
+    """Metriğin son çeyrekte bir önceki çeyreğe göre yüzde değişimi."""
+    series = metric_series(df, symbol, metric)
+    if len(series) < 2:
+        return None
+    prev, last = series.iloc[-2], series.iloc[-1]
+    if prev == 0:
+        return None
+    return float((last / prev - 1) * 100)
+
+
+def pivot_symbol_table(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
+    """Bir sembolün tüm finansal tablo kalemlerini kalem x çeyrek pivot olarak döndürür."""
+    symbol_df = df[df["SYMBOL"] == symbol]
+    if symbol_df.empty:
+        return pd.DataFrame()
+    quarters = get_quarter_columns(df)
+    pivot = symbol_df.set_index("FINANCIAL_ITEM_NAME_TR")[quarters]
+    return pivot.apply(pd.to_numeric, errors="coerce")

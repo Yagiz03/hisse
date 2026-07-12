@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from data.cache import fetch_financials
-from data.financials import latest_value, metric_series
+from data.financials import latest_value, metric_series, pivot_symbol_table, qoq_growth
 from ui.components import download_excel_button, kpi_card
 from ui.nav import top_nav
 from ui.theme import fund_color, inject_css, plotly_layout
@@ -58,20 +58,35 @@ for s in missing_symbols:
 if not available_symbols:
     st.stop()
 
-# --- KPI kartları (son çeyrek) -----------------------------------------
+# --- KPI kartları (son çeyrek, çeyreklik büyüme ile) --------------------
 cols = st.columns(len(available_symbols))
 for i, sym in enumerate(available_symbols):
     with cols[i]:
+        st.markdown(f"**{sym}**")
         revenue = latest_value(df, sym, "Hasılat")
+        revenue_g = qoq_growth(df, sym, "Hasılat")
+        kpi_card(
+            "Hasılat (Son Çeyrek)",
+            f"{revenue:,.0f}" if revenue is not None else "veri yok",
+            delta=f"{revenue_g:+.1f}% ÇÇ" if revenue_g is not None else None,
+            delta_good=(revenue_g is not None and revenue_g >= 0),
+        )
         net_income = latest_value(df, sym, "Net Dönem Karı")
-        kpi_card(f"{sym} · Son Çeyrek Hasılat", f"{revenue:,.0f}" if revenue is not None else "veri yok")
-        kpi_card(f"{sym} · Son Çeyrek Net Kar", f"{net_income:,.0f}" if net_income is not None else "veri yok")
+        net_income_g = qoq_growth(df, sym, "Net Dönem Karı")
+        kpi_card(
+            "Net Kar (Son Çeyrek)",
+            f"{net_income:,.0f}" if net_income is not None else "veri yok",
+            delta=f"{net_income_g:+.1f}% ÇÇ" if net_income_g is not None else None,
+            delta_good=(net_income_g is not None and net_income_g >= 0),
+        )
 
 st.divider()
 
 # --- Trend grafiği: Hasılat ve Net Kar ----------------------------------
-st.subheader("Hasılat ve Net Kar Trendi")
-metric_choice = st.radio("Metrik", ["Hasılat", "Net Dönem Karı"], horizontal=True)
+st.subheader("Trend")
+metric_choice = st.radio(
+    "Metrik", ["Hasılat", "Esas Faaliyet Karı", "Net Dönem Karı", "Toplam Varlıklar"], horizontal=True
+)
 
 fig = go.Figure()
 for i, sym in enumerate(available_symbols):
@@ -98,30 +113,47 @@ st.subheader("Rasyo Karşılaştırması (Son Çeyrek)")
 
 rows = []
 for sym in available_symbols:
+    hasilat = latest_value(df, sym, "Hasılat")
+    faaliyet_kari = latest_value(df, sym, "Esas Faaliyet Karı")
+    net_kar = latest_value(df, sym, "Net Dönem Karı")
     donen = latest_value(df, sym, "Dönen Varlıklar")
     kv_yukumluluk = latest_value(df, sym, "Kısa Vadeli Yükümlülükler")
+    toplam_varlik = latest_value(df, sym, "Toplam Varlıklar")
     toplam_yukumluluk = latest_value(df, sym, "Toplam Yükümlülükler")
     ozkaynak = latest_value(df, sym, "Özkaynaklar")
-    net_kar = latest_value(df, sym, "Net Dönem Karı")
-
-    cari_oran = donen / kv_yukumluluk if donen and kv_yukumluluk else None
-    borc_ozkaynak = toplam_yukumluluk / ozkaynak if toplam_yukumluluk and ozkaynak else None
-    roe = net_kar / ozkaynak if net_kar and ozkaynak else None
 
     rows.append(
         {
             "Sembol": sym,
-            "Cari Oran": cari_oran,
-            "Borç / Özkaynak": borc_ozkaynak,
-            "ROE (Çeyreklik)": roe,
+            "Cari Oran": donen / kv_yukumluluk if donen and kv_yukumluluk else None,
+            "Borç / Özkaynak": toplam_yukumluluk / ozkaynak if toplam_yukumluluk and ozkaynak else None,
+            "Borçluluk Oranı (%)": (toplam_yukumluluk / toplam_varlik * 100) if toplam_yukumluluk and toplam_varlik else None,
+            "Faaliyet Kar Marjı (%)": (faaliyet_kari / hasilat * 100) if faaliyet_kari and hasilat else None,
+            "Net Kar Marjı (%)": (net_kar / hasilat * 100) if net_kar and hasilat else None,
+            "ROE (Çeyreklik, %)": (net_kar / ozkaynak * 100) if net_kar and ozkaynak else None,
+            "ROA (Çeyreklik, %)": (net_kar / toplam_varlik * 100) if net_kar and toplam_varlik else None,
         }
     )
 
 ratio_df = pd.DataFrame(rows).set_index("Sembol")
 st.dataframe(ratio_df.style.format("{:.2f}", na_rep="-"), use_container_width=True)
-st.caption("ROE burada yıllıklandırılmamış, tek çeyreğin net kar / özkaynak oranıdır.")
+st.caption("ROE ve ROA burada yıllıklandırılmamıştır, tek çeyreğin oranıdır.")
 
-with st.expander("Ham finansal tablo verisi"):
+st.divider()
+
+# --- Tam finansal tablo (şirket bazlı) -----------------------------------
+st.subheader("Tam Finansal Tablo")
+tabs = st.tabs(available_symbols)
+for sym, tab in zip(available_symbols, tabs):
+    with tab:
+        pivot = pivot_symbol_table(df, sym)
+        if pivot.empty:
+            st.info("Bu şirket için detaylı tablo verisi yok.")
+            continue
+        st.dataframe(pivot.style.format("{:,.0f}", na_rep="-"), use_container_width=True, height=420)
+        download_excel_button(pivot, f"{sym}_finansal_tablo.xlsx", label=f"{sym} tablosunu indir")
+
+with st.expander("Ham finansal tablo verisi (tüm şirketler)"):
     st.dataframe(df, use_container_width=True)
 
 download_excel_button(df, "finansal_tablolar.xlsx")
