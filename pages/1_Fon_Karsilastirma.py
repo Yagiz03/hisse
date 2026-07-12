@@ -2,7 +2,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from data.cache import parse_kap_allocation, parse_kap_period
+from data.cache import fetch_kap_allocation_pdf, parse_kap_allocation, parse_kap_period
+from data.kap_fetch import KapFetchError
 from ui.components import download_excel_button
 from ui.theme import fund_color, inject_css, plotly_layout
 
@@ -11,52 +12,83 @@ inject_css()
 
 st.title("Fon Karşılaştırma")
 st.caption(
-    "Fonların KAP'ta yayınlanan aylık \"Portföy Dağılım Raporu\" PDF'lerini yükleyin, "
-    "varlık sınıfı dağılımlarını ve aralarındaki farkı karşılaştırın"
+    "Fonların KAP'ta yayınlanan aylık \"Portföy Dağılım Raporu\" verilerini karşılaştırın"
 )
 
 with st.sidebar:
     st.subheader("Fon Raporları")
-    uploaded_files = st.file_uploader(
-        "KAP Portföy Dağılım Raporu (PDF)",
-        type="pdf",
-        accept_multiple_files=True,
-        help="Fonu yöneten portföy yönetim şirketinin KAP bildirimlerinden indirilen aylık rapor",
-    )
-    st.caption(
-        "KAP'ta bulmak için: fonun TEFAS sayfasındaki \"KAP Bilgi Sayfası\" linkine gidin, "
-        "bildirimler arasından \"Portföy Dağılım Raporu\"nu indirin."
+    mode = st.radio(
+        "Kaynak",
+        ["Fon kodu ile otomatik getir", "PDF yükle"],
+        help="Otomatik getirme KAP'ın bot korumasına takılırsa PDF yükleme yöntemine geç",
     )
 
-if not uploaded_files:
-    st.info("Karşılaştırmaya başlamak için en az iki fonun PDF raporunu yükleyin.")
-    st.stop()
+    auto_codes: list[str] = []
+    uploaded_files = []
+    if mode == "Fon kodu ile otomatik getir":
+        codes_input = st.text_input("Fon kodları (virgülle ayırın)", placeholder="Örn: BHL, AK3, BID")
+        auto_codes = [c.strip().upper() for c in codes_input.split(",") if c.strip()]
+    else:
+        uploaded_files = st.file_uploader(
+            "KAP Portföy Dağılım Raporu (PDF)",
+            type="pdf",
+            accept_multiple_files=True,
+            help="Fonu yöneten portföy yönetim şirketinin KAP bildirimlerinden indirilen aylık rapor",
+        )
+        st.caption(
+            "KAP'ta bulmak için: fonun TEFAS sayfasındaki \"KAP Bilgi Sayfası\" linkine gidin, "
+            "bildirimler arasından \"Portföy Dağılım Raporu\"nu indirin."
+        )
 
-if len(uploaded_files) < 2:
-    st.warning("Karşılaştırma için en az iki PDF gerekli.")
+has_input = len(auto_codes) >= 2 or len(uploaded_files) >= 2
+if not has_input:
+    st.info("Karşılaştırmaya başlamak için en az iki fon girin.")
     st.stop()
 
 allocations: dict[str, dict[str, float]] = {}
 periods: dict[str, str | None] = {}
 errors: list[str] = []
 
-with st.spinner("PDF'ler okunuyor..."):
-    for file in uploaded_files:
-        label = file.name.rsplit(".", 1)[0]
-        pdf_bytes = file.getvalue()
-        try:
+with st.spinner("Fon raporları alınıyor..."):
+    if auto_codes:
+        for code in auto_codes:
+            try:
+                pdf_bytes = fetch_kap_allocation_pdf(code)
+            except KapFetchError as exc:
+                errors.append(f"{code}: KAP'tan alınamadı ({exc})")
+                continue
+            except Exception as exc:
+                errors.append(f"{code}: KAP'tan alınamadı, beklenmeyen hata ({exc})")
+                continue
             alloc = parse_kap_allocation(pdf_bytes)
-        except Exception as exc:
-            errors.append(f"{label}: PDF okunamadı ({exc})")
-            continue
-        if not alloc or sum(alloc.values()) == 0:
-            errors.append(f"{label}: dağılım verisi bulunamadı - bu rapor tanıdığımız formatta değil olabilir")
-            continue
-        allocations[label] = alloc
-        periods[label] = parse_kap_period(pdf_bytes)
+            if not alloc or sum(alloc.values()) == 0:
+                errors.append(f"{code}: dağılım verisi bulunamadı - rapor tanıdığımız formatta değil olabilir")
+                continue
+            allocations[code] = alloc
+            periods[code] = parse_kap_period(pdf_bytes)
+    else:
+        for file in uploaded_files:
+            label = file.name.rsplit(".", 1)[0]
+            pdf_bytes = file.getvalue()
+            try:
+                alloc = parse_kap_allocation(pdf_bytes)
+            except Exception as exc:
+                errors.append(f"{label}: PDF okunamadı ({exc})")
+                continue
+            if not alloc or sum(alloc.values()) == 0:
+                errors.append(f"{label}: dağılım verisi bulunamadı - bu rapor tanıdığımız formatta değil olabilir")
+                continue
+            allocations[label] = alloc
+            periods[label] = parse_kap_period(pdf_bytes)
 
 for err in errors:
     st.warning(err)
+
+if auto_codes and errors:
+    st.caption(
+        "Otomatik getirme başarısız olursa KAP'ın bot koruması engelliyor olabilir - "
+        "soldaki menüden \"PDF yükle\" seçeneğine geçip raporu manuel indirip yükleyebilirsin."
+    )
 
 if len(allocations) < 2:
     st.error("En az iki fon için veri okunamadı, karşılaştırma yapılamıyor.")

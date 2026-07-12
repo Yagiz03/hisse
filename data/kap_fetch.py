@@ -1,0 +1,92 @@
+"""KAP'tan fon kodu ile otomatik "Portföy Dağılım Raporu" PDF çekimi.
+
+Akış (tarayıcı Network sekmesinden ters mühendislikle bulundu):
+
+1. POST /tr/api/search/combined {"keyword": <fon kodu>, ...} -> memberOrFundOid
+2. GET /tr/fon-bilgileri/ozet/<memberOrFundOid>  -> sayfa HTML'inde en güncel
+   "Portföy Dağılım Raporu" PDF'inin indirme linki (api/file/download/<id>) geçiyor
+3. GET /tr/api/file/download/<id> -> PDF baytları
+
+KAP, bilinen bot koruması (Akamai benzeri) kullanıyor; bu yüzden bu akış
+tarayıcıda çalışsa da sunucudan (örn. Streamlit Cloud) her zaman çalışacağının
+garantisi yok. Böyle bir durumda kullanıcı manuel PDF yüklemeye geri düşebilir
+(bkz. pages/1_Fon_Karsilastirma.py).
+"""
+
+from __future__ import annotations
+
+import re
+
+import requests
+
+BASE_URL = "https://www.kap.org.tr"
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "tr",
+}
+
+FILE_LINK_RE = re.compile(r"api/file/download/([a-f0-9]{32})")
+
+
+class KapFetchError(RuntimeError):
+    pass
+
+
+class KapAutoFetcher:
+    def __init__(self, timeout: int = 15):
+        self._session = requests.Session()
+        self._session.headers.update(HEADERS)
+        self._timeout = timeout
+        self._session.get(BASE_URL, timeout=timeout)
+
+    def find_fund_oid(self, fund_code: str) -> str:
+        resp = self._session.post(
+            f"{BASE_URL}/tr/api/search/combined",
+            json={"keyword": fund_code, "discClass": "ALL", "lang": "tr", "channel": "WEB"},
+            headers={
+                "Content-Type": "application/json",
+                "Origin": BASE_URL,
+                "Referer": f"{BASE_URL}/tr",
+            },
+            timeout=self._timeout,
+        )
+        resp.raise_for_status()
+        categories = resp.json()
+        for cat in categories:
+            if cat.get("category") != "companyOrFunds":
+                continue
+            for result in cat.get("results", []):
+                if result.get("cmpOrFundCode", "").upper() == fund_code.upper():
+                    return result["memberOrFundOid"]
+        raise KapFetchError(f"KAP aramasında '{fund_code}' fon kodu bulunamadı")
+
+    def find_latest_report_url(self, fund_oid: str) -> str:
+        resp = self._session.get(
+            f"{BASE_URL}/tr/fon-bilgileri/ozet/{fund_oid}",
+            headers={"Referer": f"{BASE_URL}/tr"},
+            timeout=self._timeout,
+        )
+        resp.raise_for_status()
+        match = FILE_LINK_RE.search(resp.text)
+        if not match:
+            raise KapFetchError(
+                f"Fon özet sayfasında (oid={fund_oid}) Portföy Dağılım Raporu linki bulunamadı"
+            )
+        return f"{BASE_URL}/tr/api/file/download/{match.group(1)}"
+
+    def download_pdf(self, url: str) -> bytes:
+        resp = self._session.get(url, headers={"Referer": BASE_URL}, timeout=self._timeout)
+        resp.raise_for_status()
+        content_type = resp.headers.get("Content-Type", "")
+        if "pdf" not in content_type.lower() and not resp.content.startswith(b"%PDF"):
+            raise KapFetchError(f"İndirilen dosya PDF değil (Content-Type: {content_type})")
+        return resp.content
+
+    def fetch_latest_allocation_pdf(self, fund_code: str) -> bytes:
+        oid = self.find_fund_oid(fund_code)
+        pdf_url = self.find_latest_report_url(oid)
+        return self.download_pdf(pdf_url)
