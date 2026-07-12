@@ -7,7 +7,7 @@ st.set_page_config(
     page_title="Hisse Masası",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 inject_css()
 top_nav("Ana Sayfa")

@@ -11,17 +11,19 @@ from ui.components import download_excel_button, kpi_card
 from ui.nav import top_nav
 from ui.theme import SURFACE, TEXT_PRIMARY, plotly_layout, inject_css
 
-st.set_page_config(page_title="Sektör Isı Haritası", page_icon="🗺️", layout="wide")
+st.set_page_config(page_title="Sektör Isı Haritası", page_icon="🗺️", layout="wide", initial_sidebar_state="collapsed")
 inject_css()
 top_nav("Sektör Isı Haritası")
 
 st.title("Sektör Isı Haritası")
 st.caption("BIST30 şirketlerinin seçilen dönemdeki getirisi, sektöre göre gruplanmış (kaynak: İş Yatırım)")
 
-with st.sidebar:
-    st.subheader("Dönem")
-    end = st.date_input("Bitiş", value=date.today(), key="heatmap_end")
-    start = st.date_input("Başlangıç", value=date.today() - timedelta(days=7), key="heatmap_start")
+with st.container(border=True):
+    c1, c2 = st.columns(2)
+    with c1:
+        start = st.date_input("Başlangıç", value=date.today() - timedelta(days=7), key="heatmap_start")
+    with c2:
+        end = st.date_input("Bitiş", value=date.today(), key="heatmap_end")
 
 if start >= end:
     st.error("Başlangıç tarihi bitiş tarihinden önce olmalı.")

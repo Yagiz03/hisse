@@ -11,26 +11,28 @@ from ui.components import download_excel_button, kpi_card
 from ui.nav import top_nav
 from ui.theme import fund_color, inject_css, plotly_layout
 
-st.set_page_config(page_title="Portföy Simülasyonu", page_icon="💼", layout="wide")
+st.set_page_config(page_title="Portföy Simülasyonu", page_icon="💼", layout="wide", initial_sidebar_state="collapsed")
 inject_css()
 top_nav("Portföy Simülasyonu")
 
 st.title("Portföy Simülasyonu")
 st.caption("Hisse ağırlıklarını gir, geçmiş performansı XU100 endeksine göre kıyasla")
 
-with st.sidebar:
-    st.subheader("Portföy")
-    default_rows = pd.DataFrame({"Sembol": ["THYAO", "ASELS", "EREGL"], "Ağırlık (%)": [40.0, 30.0, 30.0]})
-    portfolio_df = st.data_editor(
-        default_rows,
-        num_rows="dynamic",
-        use_container_width=True,
-        key="portfolio_editor",
-    )
-
-    st.subheader("Dönem")
-    end = st.date_input("Bitiş", value=date.today(), key="portfolio_end")
-    start = st.date_input("Başlangıç", value=date.today() - timedelta(days=365), key="portfolio_start")
+with st.container(border=True):
+    col_editor, col_dates = st.columns([2, 1])
+    with col_editor:
+        st.caption("Portföy")
+        default_rows = pd.DataFrame({"Sembol": ["THYAO", "ASELS", "EREGL"], "Ağırlık (%)": [40.0, 30.0, 30.0]})
+        portfolio_df = st.data_editor(
+            default_rows,
+            num_rows="dynamic",
+            use_container_width=True,
+            key="portfolio_editor",
+        )
+    with col_dates:
+        st.caption("Dönem")
+        start = st.date_input("Başlangıç", value=date.today() - timedelta(days=365), key="portfolio_start")
+        end = st.date_input("Bitiş", value=date.today(), key="portfolio_end")
 
 portfolio_df = portfolio_df.dropna(subset=["Sembol"])
 portfolio_df["Sembol"] = portfolio_df["Sembol"].astype(str).str.strip().str.upper()

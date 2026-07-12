@@ -10,7 +10,7 @@ from ui.components import download_excel_button, kpi_card
 from ui.nav import top_nav
 from ui.theme import fund_color, inject_css, plotly_layout
 
-st.set_page_config(page_title="Fon Karşılaştırma", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Fon Karşılaştırma", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
 inject_css()
 top_nav("Fon Karşılaştırma")
 
@@ -19,12 +19,13 @@ st.caption(
     "Fonların KAP'ta yayınlanan aylık \"Portföy Dağılım Raporu\" verilerini karşılaştırın"
 )
 
-with st.sidebar:
+with st.container(border=True):
     st.subheader("Fon Raporları")
     mode = st.radio(
         "Kaynak",
         ["Fon kodu ile otomatik getir", "PDF yükle"],
         help="Otomatik getirme KAP'ın bot korumasına takılırsa PDF yükleme yöntemine geç",
+        horizontal=True,
     )
 
     auto_codes: list[str] = []

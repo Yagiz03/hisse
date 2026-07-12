@@ -10,29 +10,30 @@ from ui.components import download_excel_button, kpi_card
 from ui.nav import top_nav
 from ui.theme import fund_color, inject_css, plotly_layout
 
-st.set_page_config(page_title="Finansal Tablolar", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Finansal Tablolar", page_icon="📈", layout="wide", initial_sidebar_state="collapsed")
 inject_css()
 top_nav("Finansal Tablolar")
 
 st.title("Finansal Tablolar")
 st.caption("BIST şirketlerinin bilanço / gelir tablosu kalemlerini karşılaştırın (kaynak: İş Yatırım)")
 
-with st.sidebar:
-    st.subheader("Şirket Seçimi")
+with st.container(border=True):
     symbols_input = st.text_input(
         "Hisse kodları (virgülle ayırın)",
         placeholder="Örn: THYAO, ASELS, EREGL",
     )
     symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()]
 
-    st.subheader("Dönem")
     current_year = date.today().year
-    start_year = st.number_input("Başlangıç yılı", min_value=2010, max_value=current_year, value=current_year - 2)
-    end_year = st.number_input("Bitiş yılı", min_value=2010, max_value=current_year, value=current_year)
-
-    st.subheader("Ayarlar")
-    exchange = st.radio("Para birimi", ["TRY", "USD"], horizontal=True)
-    group_label = st.selectbox("Finansal grup", ["XI_29", "UFRS", "UFRS_K"])
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        start_year = st.number_input("Başlangıç yılı", min_value=2010, max_value=current_year, value=current_year - 2)
+    with c2:
+        end_year = st.number_input("Bitiş yılı", min_value=2010, max_value=current_year, value=current_year)
+    with c3:
+        exchange = st.radio("Para birimi", ["TRY", "USD"], horizontal=True)
+    with c4:
+        group_label = st.selectbox("Finansal grup", ["XI_29", "UFRS", "UFRS_K"])
     financial_group = {"XI_29": "1", "UFRS": "2", "UFRS_K": "3"}[group_label]
 
 if not symbols:
