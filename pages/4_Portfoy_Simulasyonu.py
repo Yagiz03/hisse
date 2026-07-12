@@ -8,10 +8,12 @@ import streamlit as st
 from data.cache import fetch_index_prices, fetch_stock_prices
 from data.prices import daily_returns
 from ui.components import kpi_card
+from ui.nav import top_nav
 from ui.theme import fund_color, inject_css, plotly_layout
 
 st.set_page_config(page_title="Portföy Simülasyonu", page_icon="💼", layout="wide")
 inject_css()
+top_nav("Portföy Simülasyonu")
 
 st.title("Portföy Simülasyonu")
 st.caption("Hisse ağırlıklarını gir, geçmiş performansı XU100 endeksine göre kıyasla")

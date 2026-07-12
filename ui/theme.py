@@ -52,15 +52,29 @@ def plotly_layout(**overrides) -> dict:
 
 
 def inject_css() -> None:
+    accent_gradient = f"linear-gradient(90deg, {CATEGORICAL[0]}, {CATEGORICAL[4]}, {CATEGORICAL[7]})"
     st.markdown(
         f"""
         <style>
+        /* Varsayılan çok sayfalı sidebar listesini gizle - navigasyonu üstteki
+           pill-tab menü (ui/nav.py) devralıyor. */
+        [data-testid="stSidebarNav"] {{ display: none; }}
+
         .kpi-card {{
+            position: relative;
             background: {SURFACE};
             border: 1px solid rgba(255,255,255,0.10);
-            border-radius: 10px;
-            padding: 16px 20px;
+            border-radius: 12px;
+            padding: 18px 20px 16px;
             margin-bottom: 8px;
+            overflow: hidden;
+        }}
+        .kpi-card::before {{
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: {accent_gradient};
         }}
         .kpi-label {{
             color: {TEXT_MUTED};
@@ -73,13 +87,35 @@ def inject_css() -> None:
             font-size: 1.7rem;
             font-weight: 600;
             font-variant-numeric: tabular-nums;
+            margin-top: 4px;
         }}
         .kpi-delta-good {{ color: {STATUS['good']}; font-size: 0.85rem; }}
         .kpi-delta-bad {{ color: {STATUS['critical']}; font-size: 0.85rem; }}
         .kpi-value-good {{ color: {STATUS['good']}; }}
         .kpi-value-bad {{ color: {STATUS['critical']}; }}
+
         section[data-testid="stSidebar"] {{
             background: {SURFACE};
+            border-right: 1px solid rgba(255,255,255,0.08);
+        }}
+
+        [data-testid="stDataFrame"] {{
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.08);
+        }}
+
+        .stButton > button, .stDownloadButton > button {{
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.15);
+        }}
+
+        h1 {{
+            background: {accent_gradient};
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
         }}
         </style>
         """,

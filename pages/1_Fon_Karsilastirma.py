@@ -7,10 +7,12 @@ import streamlit as st
 from data.cache import fetch_kap_allocation_pdf, parse_kap_allocation, parse_kap_period
 from data.kap_fetch import KapFetchError
 from ui.components import download_excel_button
+from ui.nav import top_nav
 from ui.theme import fund_color, inject_css, plotly_layout
 
 st.set_page_config(page_title="Fon Karşılaştırma", page_icon="📊", layout="wide")
 inject_css()
+top_nav("Fon Karşılaştırma")
 
 st.title("Fon Karşılaştırma")
 st.caption(

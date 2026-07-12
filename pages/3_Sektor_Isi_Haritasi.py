@@ -7,10 +7,12 @@ import streamlit as st
 from data.cache import fetch_stock_prices
 from data.prices import period_return
 from data.sectors import BIST30_SECTORS
+from ui.nav import top_nav
 from ui.theme import SURFACE, TEXT_PRIMARY, plotly_layout, inject_css
 
 st.set_page_config(page_title="Sektör Isı Haritası", page_icon="🗺️", layout="wide")
 inject_css()
+top_nav("Sektör Isı Haritası")
 
 st.title("Sektör Isı Haritası")
 st.caption("BIST30 şirketlerinin seçilen dönemdeki getirisi, sektöre göre gruplanmış (kaynak: İş Yatırım)")
