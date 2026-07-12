@@ -37,11 +37,14 @@ class KapFetchError(RuntimeError):
 
 
 class KapAutoFetcher:
-    def __init__(self, timeout: int = 15):
+    def __init__(self, timeout: int = 8):
         self._session = requests.Session()
         self._session.headers.update(HEADERS)
         self._timeout = timeout
-        self._session.get(BASE_URL, timeout=timeout)
+        try:
+            self._session.get(BASE_URL, timeout=timeout)
+        except requests.RequestException:
+            pass  # sadece çerez almak için deneniyor, başarısız olursa devam edilir
 
     def find_fund_oid(self, fund_code: str) -> str:
         resp = self._session.post(

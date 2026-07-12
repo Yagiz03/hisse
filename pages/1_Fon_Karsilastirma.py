@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -51,21 +53,24 @@ errors: list[str] = []
 
 with st.spinner("Fon raporları alınıyor..."):
     if auto_codes:
-        for code in auto_codes:
-            try:
-                pdf_bytes = fetch_kap_allocation_pdf(code)
-            except KapFetchError as exc:
-                errors.append(f"{code}: KAP'tan alınamadı ({exc})")
-                continue
-            except Exception as exc:
-                errors.append(f"{code}: KAP'tan alınamadı, beklenmeyen hata ({exc})")
-                continue
-            alloc = parse_kap_allocation(pdf_bytes)
-            if not alloc or sum(alloc.values()) == 0:
-                errors.append(f"{code}: dağılım verisi bulunamadı - rapor tanıdığımız formatta değil olabilir")
-                continue
-            allocations[code] = alloc
-            periods[code] = parse_kap_period(pdf_bytes)
+        with ThreadPoolExecutor(max_workers=min(len(auto_codes), 6)) as pool:
+            futures = {pool.submit(fetch_kap_allocation_pdf, code): code for code in auto_codes}
+            for future in as_completed(futures):
+                code = futures[future]
+                try:
+                    pdf_bytes = future.result()
+                except KapFetchError as exc:
+                    errors.append(f"{code}: KAP'tan alınamadı ({exc})")
+                    continue
+                except Exception as exc:
+                    errors.append(f"{code}: KAP'tan alınamadı, beklenmeyen hata ({exc})")
+                    continue
+                alloc = parse_kap_allocation(pdf_bytes)
+                if not alloc or sum(alloc.values()) == 0:
+                    errors.append(f"{code}: dağılım verisi bulunamadı - rapor tanıdığımız formatta değil olabilir")
+                    continue
+                allocations[code] = alloc
+                periods[code] = parse_kap_period(pdf_bytes)
     else:
         for file in uploaded_files:
             label = file.name.rsplit(".", 1)[0]
@@ -94,7 +99,8 @@ if len(allocations) < 2:
     st.error("En az iki fon için veri okunamadı, karşılaştırma yapılamıyor.")
     st.stop()
 
-valid_labels = list(allocations.keys())
+ordered_labels = auto_codes if auto_codes else [f.name.rsplit(".", 1)[0] for f in uploaded_files]
+valid_labels = [lbl for lbl in ordered_labels if lbl in allocations]
 
 st.caption(
     "Dönem: "

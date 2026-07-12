@@ -1,5 +1,5 @@
-"""Streamlit cache sarmalayıcıları - TEFAS istemcisini her rerun'da yeniden
-kurmamak ve aynı gün içinde tekrar tekrar aynı veriyi çekmemek için."""
+"""Streamlit cache sarmalayıcıları - her rerun'da aynı veriyi tekrar
+çekmemek için (İş Yatırım fiyat/finansal veri, KAP fon raporları)."""
 
 from datetime import date
 

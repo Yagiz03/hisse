@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+import pandas as pd
 import plotly.express as px
 import streamlit as st
 
@@ -42,8 +43,6 @@ for sym in symbols:
 if not rows:
     st.warning("Seçilen aralık için veri bulunamadı.")
     st.stop()
-
-import pandas as pd
 
 heat_df = pd.DataFrame(rows)
 max_abs = max(heat_df["Getiri"].abs().max(), 1e-6)
