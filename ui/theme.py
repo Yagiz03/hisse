@@ -61,6 +61,16 @@ def inject_css() -> None:
         [data-testid="stSidebar"],
         [data-testid="stExpandSidebarButton"] {{ display: none; }}
 
+        /* Üst boşluğu daraltıp navigasyon çubuğunu sayfanın en üstüne, tam
+           genişlikte (kenardan kenara) yasla - referans tasarımdaki gibi. */
+        [data-testid="stAppViewContainer"] .block-container {{
+            padding-top: 3rem;
+            max-width: 100%;
+        }}
+        [data-testid="stHeader"] {{
+            background: transparent;
+        }}
+
         .kpi-card {{
             position: relative;
             background: {SURFACE};

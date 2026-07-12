@@ -106,14 +106,8 @@ def _find_anchor_page(doc: fitz.Document, pattern: re.Pattern, max_pages: int = 
     return None
 
 
-def parse_allocation(pdf: PdfSource) -> dict[str, float]:
-    """Fonun varlık sınıfı bazlı yüzdelik dağılımını döndürür (etiket -> yüzde)."""
-    doc = _open(pdf)
-    page_no = _find_anchor_page(doc, _ALLOCATION_PAGE_ANCHOR)
-    if page_no is None:
-        return {}
-
-    rows = _page_rows(doc[page_no])
+def _parse_allocation_from_page(page: fitz.Page) -> dict[str, float]:
+    rows = _page_rows(page)
     started = False
     result: dict[str, float] = {}
 
@@ -139,6 +133,68 @@ def parse_allocation(pdf: PdfSource) -> dict[str, float]:
         except ValueError:
             continue
         result[label] = pct
+
+    return result
+
+
+def _label_to_canonical(label: str) -> str | None:
+    """Bir satır etiketini bilinen (SPK standart) varlık sınıfı adına eşler.
+
+    Tam eşleşme yoksa alt-dize eşleşmesi de dener (rapor formatına göre
+    etiketler kısaltılmış/genişletilmiş olabilir, örn. "HİSSE SENEDİ (%)"
+    ya da "B) HİSSE SENEDİ").
+    """
+    canon = _canonical(label)
+    if canon in CANONICAL_LABELS.values():
+        return canon
+    upper = re.sub(r"\s+", " ", label).strip().upper()
+    for key, val in CANONICAL_LABELS.items():
+        if key in upper:
+            return val
+    return None
+
+
+def _parse_allocation_fallback(doc: fitz.Document, max_pages: int = 60) -> dict[str, float]:
+    """Bilinen "anchor" ifadesi (`MENKUL KIYMETLER YÜZDESİ` vb.) bulunamadığında
+    ya da bulunan sayfa boş/anlamsız sonuç verdiğinde kullanılan son çare:
+    sayfa başlığı aramaksızın, satırları doğrudan bilinen varlık sınıfı
+    etiketleriyle eşleştirmeye çalışır. Rapor düzeni tamamen farklı olsa bile
+    (farklı portföy yönetim şirketi şablonu, beklenmeyen bir doküman vb.)
+    satırlar "ETİKET ... YÜZDE" şeklindeyse veri çıkarabilir.
+    """
+    result: dict[str, float] = {}
+    for pno in range(min(max_pages, len(doc))):
+        rows = _page_rows(doc[pno])
+        for row in rows:
+            label_parts = [s.text for s in row if not _NUMBER.match(s.text) and s.text != ":"]
+            value_parts = [s.text for s in row if _NUMBER.match(s.text)]
+            if not label_parts or not value_parts:
+                continue
+            canon = _label_to_canonical(" ".join(label_parts))
+            if canon is None or canon in result:
+                continue
+            raw_value = value_parts[-1].replace("%", "").strip()
+            raw_value = raw_value.replace(".", "").replace(",", ".") if "," in raw_value else raw_value
+            try:
+                pct = float(raw_value)
+            except ValueError:
+                continue
+            if 0 <= pct <= 100:
+                result[canon] = pct
+    return result
+
+
+def parse_allocation(pdf: PdfSource) -> dict[str, float]:
+    """Fonun varlık sınıfı bazlı yüzdelik dağılımını döndürür (etiket -> yüzde)."""
+    doc = _open(pdf)
+    page_no = _find_anchor_page(doc, _ALLOCATION_PAGE_ANCHOR, max_pages=min(30, len(doc)))
+    result = _parse_allocation_from_page(doc[page_no]) if page_no is not None else {}
+
+    total = sum(result.values())
+    if not result or not (90 <= total <= 110):
+        fallback = _parse_allocation_fallback(doc)
+        if sum(fallback.values()) > total:
+            result = fallback
 
     return result
 

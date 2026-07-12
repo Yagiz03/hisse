@@ -84,11 +84,26 @@ class KapAutoFetcher:
         except requests.RequestException as exc:
             raise KapFetchError(f"Fon özet sayfası alınamadı ({exc})") from exc
 
-        match = FILE_LINK_RE.search(resp.text)
-        if not match:
+        text = resp.text
+        matches = list(FILE_LINK_RE.finditer(text))
+        if not matches:
             raise KapFetchError(
                 f"Fon özet sayfasında (oid={fund_oid}) Portföy Dağılım Raporu linki bulunamadı"
             )
+
+        # Özet sayfasında izahname, fon bilgilendirme formu gibi başka
+        # bildirim linkleri de geçiyor - körü körüne İLK linki almak yanlış
+        # PDF'i indirip "tanımadığımız format" hatasına yol açıyordu. Önce,
+        # metinde hemen öncesinde "Portföy Dağılım" ifadesi geçen linki ara;
+        # bulunamazsa (sayfa yapısı beklenenden farklıysa) son çare olarak
+        # ilk linke düş.
+        best = None
+        for m in matches:
+            window = text[max(0, m.start() - 400) : m.start()]
+            if re.search(r"PORTF[ÖO]Y\s*DA[ĞG]ILIM", window, re.IGNORECASE):
+                best = m
+                break
+        match = best or matches[0]
         return f"{BASE_URL}/tr/api/file/download/{match.group(1)}"
 
     def download_pdf(self, url: str) -> bytes:
