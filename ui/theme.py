@@ -56,15 +56,13 @@ def inject_css() -> None:
     st.markdown(
         f"""
         <style>
-        /* Sidebar tamamen kaldırıldı - navigasyonu üstteki pill-tab menü
-           (ui/nav.py) devralıyor, hiçbir sayfa st.sidebar kullanmıyor. */
+        /* Sidebar tamamen kaldırıldı - navigasyon native st.navigation
+           üst çubuğu üzerinden yapılıyor, hiçbir sayfa st.sidebar kullanmıyor. */
         [data-testid="stSidebar"],
         [data-testid="stExpandSidebarButton"] {{ display: none; }}
 
-        /* Üst boşluğu daraltıp navigasyon çubuğunu sayfanın en üstüne, tam
-           genişlikte (kenardan kenara) yasla - referans tasarımdaki gibi. */
         [data-testid="stAppViewContainer"] .block-container {{
-            padding-top: 3rem;
+            padding-top: 1.5rem;
             max-width: 100%;
         }}
         [data-testid="stHeader"] {{

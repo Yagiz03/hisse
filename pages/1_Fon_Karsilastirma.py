@@ -7,12 +7,7 @@ import streamlit as st
 from data.cache import fetch_kap_allocation_pdf, parse_kap_allocation, parse_kap_holdings, parse_kap_period
 from data.kap_fetch import KapFetchError
 from ui.components import download_excel_button, kpi_card
-from ui.nav import top_nav
-from ui.theme import fund_color, inject_css, plotly_layout
-
-st.set_page_config(page_title="Fon Karşılaştırma", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
-inject_css()
-top_nav("Fon Karşılaştırma")
+from ui.theme import fund_color, plotly_layout
 
 st.title("Fon Karşılaştırma")
 st.caption(

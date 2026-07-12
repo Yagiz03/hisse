@@ -7,12 +7,7 @@ import streamlit as st
 from data.cache import fetch_financials
 from data.financials import latest_value, metric_series, pivot_symbol_table, qoq_growth
 from ui.components import download_excel_button, kpi_card
-from ui.nav import top_nav
-from ui.theme import fund_color, inject_css, plotly_layout
-
-st.set_page_config(page_title="Finansal Tablolar", page_icon="📈", layout="wide", initial_sidebar_state="collapsed")
-inject_css()
-top_nav("Finansal Tablolar")
+from ui.theme import fund_color, plotly_layout
 
 st.title("Finansal Tablolar")
 st.caption("BIST şirketlerinin bilanço / gelir tablosu kalemlerini karşılaştırın (kaynak: İş Yatırım)")
