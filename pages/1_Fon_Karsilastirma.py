@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from data.cache import fetch_kap_allocation_pdf, parse_kap_allocation, parse_kap_period
+from data.cache import fetch_kap_allocation_pdf, parse_kap_allocation, parse_kap_holdings, parse_kap_period
 from data.kap_fetch import KapFetchError
 from ui.components import download_excel_button, kpi_card
 from ui.nav import top_nav
@@ -52,6 +52,7 @@ if not has_input:
 
 allocations: dict[str, dict[str, float]] = {}
 periods: dict[str, str | None] = {}
+pdf_bytes_by_label: dict[str, bytes] = {}
 errors: list[str] = []
 
 with st.spinner("Fon raporları alınıyor..."):
@@ -74,6 +75,7 @@ with st.spinner("Fon raporları alınıyor..."):
                     continue
                 allocations[code] = alloc
                 periods[code] = parse_kap_period(pdf_bytes)
+                pdf_bytes_by_label[code] = pdf_bytes
     else:
         for file in uploaded_files:
             label = file.name.rsplit(".", 1)[0]
@@ -88,6 +90,7 @@ with st.spinner("Fon raporları alınıyor..."):
                 continue
             allocations[label] = alloc
             periods[label] = parse_kap_period(pdf_bytes)
+            pdf_bytes_by_label[label] = pdf_bytes
 
 for err in errors:
     st.warning(err)
@@ -199,3 +202,35 @@ with st.expander("Ham dağılım verisi"):
     st.dataframe(alloc_df.style.format("{:.2f}"), use_container_width=True)
 
 download_excel_button(alloc_df, "fon_karsilastirma.xlsx")
+
+# --- Hisse bazlı en büyük pozisyonlar --------------------------------------
+holdings_by_label: dict[str, pd.DataFrame] = {}
+for label in valid_labels:
+    pdf_bytes = pdf_bytes_by_label.get(label)
+    if pdf_bytes is None:
+        continue
+    h = parse_kap_holdings(pdf_bytes)
+    if not h.empty:
+        holdings_by_label[label] = h.groupby("kod", as_index=False)["agirlik_pct"].sum()
+
+if holdings_by_label:
+    st.divider()
+    st.subheader("En Büyük Pozisyonlar (Hisse Bazlı)")
+    st.caption(
+        "Raporun 'Fon Portföy Değeri Tablosu' bölümünden çıkarıldı - bazı fonlarda toplamlar "
+        "resmi Hisse Senedi yüzdesinden birkaç puan sapabilir (rapor formatına bağlı), "
+        "bu yüzden gösterge niteliğindedir; kesin karar için PDF'in kendisine bakın."
+    )
+    cols = st.columns(len(holdings_by_label))
+    for i, (label, h) in enumerate(holdings_by_label.items()):
+        with cols[i]:
+            st.markdown(f"**{label}**")
+            top10 = h.sort_values("agirlik_pct", ascending=False).head(10).set_index("kod")
+            st.dataframe(top10.rename(columns={"agirlik_pct": "Ağırlık (%)"}).style.format("{:.2f}"), use_container_width=True)
+
+    if len(holdings_by_label) >= 2:
+        common = set.intersection(*[set(h["kod"]) for h in holdings_by_label.values()])
+        if common:
+            st.markdown(f"**Ortak taşınan hisseler ({len(common)}):** " + ", ".join(sorted(common)))
+        else:
+            st.caption("Seçilen fonların ortak taşıdığı hisse bulunamadı.")

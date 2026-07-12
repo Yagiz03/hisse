@@ -42,6 +42,11 @@ def parse_kap_period(pdf_bytes: bytes) -> str | None:
     return _kap.parse_period(pdf_bytes)
 
 
+@st.cache_data(show_spinner=False)
+def parse_kap_holdings(pdf_bytes: bytes) -> pd.DataFrame:
+    return _kap.parse_holdings(pdf_bytes)
+
+
 @st.cache_data(ttl=KAP_FETCH_TTL_SECONDS, show_spinner=False)
 def fetch_kap_allocation_pdf(fund_code: str) -> bytes:
     return _kap_fetch.KapAutoFetcher().fetch_latest_allocation_pdf(fund_code)

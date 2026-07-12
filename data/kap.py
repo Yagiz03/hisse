@@ -144,14 +144,32 @@ def parse_allocation(pdf: PdfSource) -> dict[str, float]:
 
 
 _NON_INSTRUMENT_CODES = {"GRUP", "TOPLAM", "ISIN"}
+_NEW_SECTION_ROW = re.compile(r"^(IV|V|VI|VII|VIII|IX)[-\s]")
 
 
-def _weight_column_x(rows: list[list[Span]]) -> float | None:
-    """Başlık satırında '%' veya '(%)' yazan sütunun X konumunu bulur."""
+def _weight_column_x(rows: list[list[Span]]) -> tuple[float, bool] | None:
+    """Fonun TOPLAM DEĞERİNE göre ağırlık sütununun X konumunu bulur.
+
+    "GRUP (%)" sütunu yanıltıcı: bir kalemin sadece kendi alt grubu içindeki
+    payını gösterir (örn. sadece hisse senetleri arasındaki pay), fonun
+    tamamına göre değil. "TOPLAM (FTD GÖRE)" sütunu ise gerçek "fonun toplam
+    değerine göre ağırlık" - gerçek pozisyon büyüklükleriyle çapraz kontrol
+    edilerek doğrulandı. Bu yüzden önce "FTD" arıyoruz.
+
+    Sadece tek bir düz "%" sütunu olan (FTD içermeyen) daha basit raporlarda
+    bu sütun da genelde sadece görüntülenen alt tablonun (örn. yalnızca
+    hisse senetleri) kendi toplamına göredir - bunu ikinci elemanla
+    (`is_section_relative=True`) işaretliyoruz ki çağıran taraf fonun genel
+    varlık sınıfı yüzdesiyle ölçekleyebilsin.
+    """
+    for row in rows:
+        for span in row:
+            if "FTD" in span.text.upper():
+                return span.x, False
     for row in rows:
         for span in row:
             if span.text.strip() in ("%", "(%)"):
-                return span.x
+                return span.x, True
     return None
 
 
@@ -159,9 +177,11 @@ def parse_holdings(pdf: PdfSource) -> pd.DataFrame:
     """Fonun tek tek taşıdığı menkul kıymetleri ve fon içi ağırlıklarını döndürür.
 
     Şirketten şirkete tablo sütun sayısı/sırası değiştiği için değer sütununu
-    konumundan (en sağdaki sayı) değil, başlıkta "%" yazan sütuna en yakın
-    sayıyı seçerek buluyoruz - bu, aradaki tutar/fiyat sütunlarıyla karışmayı
-    önlüyor.
+    konumundan (en sağdaki sayı) değil, başlıkta bulunan doğru yüzde sütununa
+    en yakın sayıyı seçerek buluyoruz - bu, aradaki tutar/fiyat sütunlarıyla
+    karışmayı önlüyor. Yeni bir üst bölüme (IV-, V- ...) geçilince satır
+    bazında duruyoruz - sayfa genelinde arama yapmak, aynı sayfada bölüm
+    geçişinden ÖNCE gelen geçerli satırları da atlamasına yol açıyordu.
     """
     doc = _open(pdf)
     page_no = _find_anchor_page(doc, _HOLDINGS_ANCHOR)
@@ -170,20 +190,21 @@ def parse_holdings(pdf: PdfSource) -> pd.DataFrame:
 
     records = []
     weight_x: float | None = None
+    section_relative = False
     for pno in range(page_no, len(doc)):
         rows = _page_rows(doc[pno])
-        page_weight_x = _weight_column_x(rows)
-        if page_weight_x is not None:
-            weight_x = page_weight_x
+        found = _weight_column_x(rows)
+        if found is not None:
+            weight_x, section_relative = found
 
-        page_text = doc[pno].get_text()
-        if pno > page_no and re.search(r"^(IV|V)[-\s]", page_text, re.MULTILINE):
-            break
-
+        stopped = False
         for row in rows:
+            first = row[0].text.strip()
+            if pno > page_no and _NEW_SECTION_ROW.match(first):
+                stopped = True
+                break
             if len(row) < 3 or weight_x is None:
                 continue
-            first = row[0].text.strip()
             if first in _NON_INSTRUMENT_CODES or not re.match(r"^[A-ZÇĞİÖŞÜ0-9]{3,6}$", first):
                 continue
             numeric_spans = [(abs(s.x - weight_x), s.text) for s in row if _NUMBER.match(s.text)]
@@ -198,7 +219,16 @@ def parse_holdings(pdf: PdfSource) -> pd.DataFrame:
                 continue
             records.append({"kod": first, "agirlik_pct": pct})
 
-    return pd.DataFrame(records)
+        if stopped:
+            break
+
+    holdings = pd.DataFrame(records)
+    if section_relative and not holdings.empty:
+        equity_pct = parse_allocation(pdf).get("Hisse Senedi")
+        if equity_pct:
+            holdings["agirlik_pct"] = holdings["agirlik_pct"] * equity_pct / 100
+
+    return holdings
 
 
 _PERIOD = re.compile(
