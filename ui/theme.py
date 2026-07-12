@@ -56,9 +56,10 @@ def inject_css() -> None:
     st.markdown(
         f"""
         <style>
-        /* Varsayılan çok sayfalı sidebar listesini gizle - navigasyonu üstteki
-           pill-tab menü (ui/nav.py) devralıyor. */
-        [data-testid="stSidebarNav"] {{ display: none; }}
+        /* Sidebar tamamen kaldırıldı - navigasyonu üstteki pill-tab menü
+           (ui/nav.py) devralıyor, hiçbir sayfa st.sidebar kullanmıyor. */
+        [data-testid="stSidebar"],
+        [data-testid="stExpandSidebarButton"] {{ display: none; }}
 
         .kpi-card {{
             position: relative;
@@ -94,11 +95,6 @@ def inject_css() -> None:
         .kpi-delta-neutral {{ color: {TEXT_MUTED}; font-size: 0.85rem; }}
         .kpi-value-good {{ color: {STATUS['good']}; }}
         .kpi-value-bad {{ color: {STATUS['critical']}; }}
-
-        section[data-testid="stSidebar"] {{
-            background: {SURFACE};
-            border-right: 1px solid rgba(255,255,255,0.08);
-        }}
 
         [data-testid="stDataFrame"] {{
             border-radius: 10px;
