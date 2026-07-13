@@ -108,6 +108,16 @@ st.caption(
     + " · ".join(f"**{lbl}**: {periods.get(lbl) or 'bilinmiyor'}" for lbl in valid_labels)
 )
 
+# Ayrıştırılan yüzdelerin toplamı %100'den belirgin sapıyorsa (PDF formatı
+# tanınamayan/eksik ayrıştırılan bir satır olabilir), kullanıcıyı uyar -
+# aksi halde grafik sessizce eksik veriyle çizilir.
+sapan = [lbl for lbl in valid_labels if abs(sum(allocations[lbl].values()) - 100) > 2]
+if sapan:
+    st.warning(
+        "Şu fonlarda ayrıştırılan yüzdeler toplamı %100'den sapıyor, veri eksik/hatalı olabilir: "
+        + ", ".join(f"**{lbl}** (%{sum(allocations[lbl].values()):.1f})" for lbl in sapan)
+    )
+
 st.divider()
 
 

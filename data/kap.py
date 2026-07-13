@@ -93,10 +93,32 @@ def _page_rows(page: fitz.Page) -> list[list[Span]]:
     return rows
 
 
+_TR_FOLD_MAP = str.maketrans({"i": "I", "İ": "I", "ı": "I", "I": "I"})
+
+
+def _fold_tr(text: str) -> str:
+    """i/İ/ı/I harflerini karşılaştırma için tek bir forma indirger.
+
+    Python'un varsayılan `str.upper()`/`.title()` yerelden bağımsızdır ve
+    Türkçe noktalı/noktasız i çiftini doğru çeviremez (örn. "Kira" ->
+    "KIRA" olur, "KİRA" olması gerekirken). Üstüne üstlük kaynak PDF'ler
+    de tutarsız: "ı" sesi çoğu zaman düz ASCII "i" ile yazılmış oluyor
+    (örn. "Katilim Hesabı"). Bu yüzden tek yönlü bir büyük harfe çevirme
+    yerine, eşleştirme için dört harfi de aynı sembole indirgeyip
+    karşılaştırıyoruz; ekranda gösterilecek doğru yazım zaten
+    CANONICAL_LABELS sözlüğünde hazır duruyor.
+    """
+    return text.translate(_TR_FOLD_MAP).upper()
+
+
+_CANONICAL_LOOKUP = {_fold_tr(k): v for k, v in CANONICAL_LABELS.items()}
+
+
 def _canonical(label: str) -> str:
-    key = _LABEL_PREFIX.sub("", label).strip().upper()
+    key = _LABEL_PREFIX.sub("", label).strip()
     key = re.sub(r"\s+", " ", key)
-    return CANONICAL_LABELS.get(key, key.title())
+    found = _CANONICAL_LOOKUP.get(_fold_tr(key))
+    return found if found is not None else key.title()
 
 
 def _find_anchor_page(doc: fitz.Document, pattern: re.Pattern, max_pages: int = 5) -> int | None:
@@ -147,9 +169,9 @@ def _label_to_canonical(label: str) -> str | None:
     canon = _canonical(label)
     if canon in CANONICAL_LABELS.values():
         return canon
-    upper = re.sub(r"\s+", " ", label).strip().upper()
+    folded = _fold_tr(re.sub(r"\s+", " ", label).strip())
     for key, val in CANONICAL_LABELS.items():
-        if key in upper:
+        if _fold_tr(key) in folded:
             return val
     return None
 
@@ -287,9 +309,14 @@ def parse_holdings(pdf: PdfSource) -> pd.DataFrame:
     return holdings
 
 
+_MONTHS = {
+    "OCAK": "Ocak", "ŞUBAT": "Şubat", "MART": "Mart", "NİSAN": "Nisan",
+    "MAYIS": "Mayıs", "HAZİRAN": "Haziran", "TEMMUZ": "Temmuz", "AĞUSTOS": "Ağustos",
+    "EYLÜL": "Eylül", "EKİM": "Ekim", "KASIM": "Kasım", "ARALIK": "Aralık",
+}
+_MONTHS_FOLDED = {_fold_tr(k): v for k, v in _MONTHS.items()}
 _PERIOD = re.compile(
-    r"(OCAK|ŞUBAT|MART|NİSAN|MAYIS|HAZİRAN|TEMMUZ|AĞUSTOS|EYLÜL|EKİM|KASIM|ARALIK)"
-    r"[\s\-]*(\d{4})",
+    "(" + "|".join(_MONTHS) + r")" r"[\s\-]*(\d{4})",
     re.IGNORECASE,
 )
 
@@ -300,4 +327,8 @@ def parse_period(pdf: PdfSource) -> str | None:
     match = _PERIOD.search(doc[0].get_text())
     if not match:
         return None
-    return f"{match.group(1).title()}-{match.group(2)}"
+    # `.title()` yerelden bağımsızdır ve "HAZİRAN" gibi Türkçe noktalı İ
+    # içeren kelimeleri yanlış küçük harfe çevirir (örn. "Hazi̇ran") -
+    # bu yüzden sabit bir eşleme kullanıyoruz.
+    month = _MONTHS_FOLDED.get(_fold_tr(match.group(1)), match.group(1).title())
+    return f"{month}-{match.group(2)}"

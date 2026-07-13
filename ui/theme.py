@@ -69,6 +69,23 @@ def inject_css() -> None:
             background: transparent;
         }}
 
+        /* "Veriyi yenile" kontrolünü native üst çubuğa (nav ile Deploy
+           arasına) sabitle. */
+        div[class*="st-key-veri_yenile_bar"] {{
+            position: fixed;
+            top: 8px;
+            right: 116px;
+            z-index: 999999;
+            width: auto;
+        }}
+        div[class*="st-key-veri_yenile_bar"] [data-testid="stPopover"] {{
+            width: auto;
+        }}
+        div[class*="st-key-veri_yenile_bar"] button {{
+            padding-top: 4px;
+            padding-bottom: 4px;
+        }}
+
         .kpi-card {{
             position: relative;
             background: {SURFACE};
