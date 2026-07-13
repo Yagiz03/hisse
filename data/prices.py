@@ -13,7 +13,7 @@ CLOSE_COL = "HGDG_KAPANIS"
 SYMBOL_COL = "HGDG_HS_KODU"
 DATE_COL = "HGDG_TARIH"
 
-MAX_PARALLEL_REQUESTS = 10
+MAX_PARALLEL_REQUESTS = 6
 
 
 def fetch_stock_prices(symbols: list[str], start: date, end: date) -> pd.DataFrame:
