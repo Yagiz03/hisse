@@ -1,3 +1,14 @@
+---
+title: Hisse Masası
+emoji: 📊
+colorFrom: blue
+colorTo: purple
+sdk: streamlit
+sdk_version: "1.59.1"
+app_file: app.py
+pinned: false
+---
+
 # Hisse Masası
 
 Portföy yönetimi için fon karşılaştırma ve piyasa analiz paneli (Streamlit).
